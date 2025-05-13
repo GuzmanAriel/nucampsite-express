@@ -7,63 +7,39 @@ var logger = require('morgan');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const mongoose = require('mongoose');
 
+const indexRouter = require('./routes/index');
+const usersRouter = require('./routes/users');
 const campsiteRouter = require('./routes/campsiteRouter');
 const promotionRouter = require('./routes/promotionRouter');
 const partnerRouter = require('./routes/partnerRouter');
 
-const mongoose = require('mongoose');
-
 const url = 'mongodb://127.0.0.1:27017/nucampsite';
 const connect = mongoose.connect(url, {});
+const passport = require('passport');
+const authenticate = require('./authenticate');
 
 connect.then(() => console.log('Connected correctly to server'),
   err => console.log(err)
 );
 
-
-
 var app = express();
-//app.use(cookieParser('12345-67890-09876-54321'));
 
-function auth(req, res, next) {
-  console.log(req.session);
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'pug');
 
-  if (!req.session.user) {
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
-          const err = new Error('You are not authenticated!');
-          res.setHeader('WWW-Authenticate', 'Basic');
-          err.status = 401;
-          return next(err);
-      }
+// Logging and body parsers (must come before routes)
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+// app.use(cookieParser('12345-67890-09876-54321')); // Uncomment if using cookies
 
-      const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
-      const user = auth[0];
-      const pass = auth[1];
-      if (user === 'admin' && pass === 'password') {
-          req.session.user = 'admin';
-          return next(); // authorized
-      } else {
-          const err = new Error('You are not authenticated!');
-          res.setHeader('WWW-Authenticate', 'Basic');
-          err.status = 401;
-          return next(err);
-      }
-  } else {
-      if (req.session.user === 'admin') {
-          return next();
-      } else {
-          const err = new Error('You are not authenticated!');
-          err.status = 401;
-          return next(err);
-      }
-  }
-}
+// Static files
+app.use(express.static(path.join(__dirname, 'public')));
 
-
+// Session middleware
 app.use(session({
   name: 'session-id',
   secret: '12345-67890-09876-54321',
@@ -72,25 +48,28 @@ app.use(session({
   store: new FileStore()
 }));
 
-// Then add your auth middleware
-app.use(auth);
+app.use(passport.initialize());
+app.use(passport.session());
 
+// Auth middleware
+function auth(req, res, next) {
+  console.log(req.user);
 
+  if (!req.user) {
+      const err = new Error('You are not authenticated!');
+      err.status = 401;
+      return next(err);
+  } else {
+      return next();
+  }
+}
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'pug');
-
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-
-app.use(express.static(path.join(__dirname, 'public')));
-
+// Routes that should be accessible without auth (like /signup, /login)
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
+// Protected routes
+app.use(auth);
 app.use('/campsites', campsiteRouter);
 app.use('/promotions', promotionRouter);
 app.use('/partners', partnerRouter);
@@ -102,11 +81,8 @@ app.use(function(req, res, next) {
 
 // error handler
 app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
   res.status(err.status || 500);
   res.render('error');
 });
