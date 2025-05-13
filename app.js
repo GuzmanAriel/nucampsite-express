@@ -4,6 +4,7 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
+
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 
@@ -14,11 +15,12 @@ const usersRouter = require('./routes/users');
 const campsiteRouter = require('./routes/campsiteRouter');
 const promotionRouter = require('./routes/promotionRouter');
 const partnerRouter = require('./routes/partnerRouter');
-
-const url = 'mongodb://127.0.0.1:27017/nucampsite';
+const config = require('./config');
+const url = config.mongoUrl;
 const connect = mongoose.connect(url, {});
 const passport = require('passport');
 const authenticate = require('./authenticate');
+
 
 connect.then(() => console.log('Connected correctly to server'),
   err => console.log(err)
@@ -51,25 +53,12 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Auth middleware
-function auth(req, res, next) {
-  console.log(req.user);
 
-  if (!req.user) {
-      const err = new Error('You are not authenticated!');
-      err.status = 401;
-      return next(err);
-  } else {
-      return next();
-  }
-}
 
 // Routes that should be accessible without auth (like /signup, /login)
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
-// Protected routes
-app.use(auth);
 app.use('/campsites', campsiteRouter);
 app.use('/promotions', promotionRouter);
 app.use('/partners', partnerRouter);
