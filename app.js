@@ -20,6 +20,7 @@ const url = config.mongoUrl;
 const connect = mongoose.connect(url, {});
 const passport = require('passport');
 const authenticate = require('./authenticate');
+const uploadRouter = require('./routes/uploadRouter');
 
 
 connect.then(() => console.log('Connected correctly to server'),
@@ -72,6 +73,7 @@ app.use('/users', usersRouter);
 app.use('/campsites', campsiteRouter);
 app.use('/promotions', promotionRouter);
 app.use('/partners', partnerRouter);
+app.use('/imageUpload', uploadRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
